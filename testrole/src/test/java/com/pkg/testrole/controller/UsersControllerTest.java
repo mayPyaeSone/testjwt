@@ -3,6 +3,7 @@ package com.pkg.testrole.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -85,17 +86,13 @@ public class UsersControllerTest {
          .andExpect(jsonPath("$.role").value("STUDENT"));
 	}
 	@Test
-	public void testRegister_ifRollisStudent_failed() throws Exception {
+	public void testRegister_roleIsNotADMIN_failed() throws Exception {
 		//request body
 		UsersCreateDTO request = new UsersCreateDTO();
 		request.setUsername("john");
 		request.setPassword("123456");
 		request.setRole("STUDENT");
-		//response body
-		UsersResponseDTO response = new UsersResponseDTO();
-		response.setId(1);
-		response.setUsername("john");
-		response.setRole("STUDENT");
+
 		//log in userSTUDENT
 		String username = "Min";
 		UserDetails userDetails = User
@@ -105,14 +102,32 @@ public class UsersControllerTest {
 				.build(); // Mocked UserDetails
 		when(jwtService.extractUserName(any(String.class))).thenReturn("Min");
 		when(myUserDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
-		when(jwtService.validateToken(Mockito.anyString(),any())).thenReturn(true);
-		when(usersService.register(any(UsersCreateDTO.class))).thenReturn(response);
 		mockMvc.perform(post("/auth/register")
 				.header("Authorization","Bearer " )
 				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(request))).andExpect(status().isCreated())
-		 .andExpect(jsonPath("$.id").value(1))
-         .andExpect(jsonPath("$.username").value("john"))
-         .andExpect(jsonPath("$.role").value("STUDENT"));
+				.content(objectMapper.writeValueAsString(request))).andExpect(status().isUnauthorized()); 
+	}
+	@Test
+	public void testRegister_requestBodyisWrong_failed() throws Exception {
+		//request body
+		UsersCreateDTO request = new UsersCreateDTO();
+		
+		//log in user
+		String username = "Min";
+		UserDetails userDetails = User
+				.withUsername("Min")
+				.password("Min@123")
+				.roles("ADMIN")
+				.build(); // Mocked UserDetails
+		when(jwtService.extractUserName(any(String.class))).thenReturn("Min");
+		when(myUserDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
+		when(jwtService.validateToken(Mockito.anyString(),any())).thenReturn(true);
+		when(usersService.register(Mockito.any(UsersCreateDTO.class)))
+		.thenThrow(new RuntimeException("Service failed"));
+		mockMvc.perform(post("/auth/register")
+				.header("Authorization","Bearer " )
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request))).andExpect(status().isBadRequest())
+        .andExpect(content().string("")); 
 	}
 }
