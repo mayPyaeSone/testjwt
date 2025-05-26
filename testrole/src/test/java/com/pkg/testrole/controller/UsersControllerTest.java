@@ -21,12 +21,16 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pkg.testrole.dto.request.LoginRequestDTO;
 import com.pkg.testrole.dto.request.UsersCreateDTO;
+import com.pkg.testrole.dto.response.LoginResponseDTO;
 import com.pkg.testrole.dto.response.UsersResponseDTO;
+import com.pkg.testrole.model.Role;
 import com.pkg.testrole.repository.CourseRepo;
 import com.pkg.testrole.repository.EnrollmentRepository;
 import com.pkg.testrole.repository.UserRepo;
 import com.pkg.testrole.security.JWTService;
+import com.pkg.testrole.security.JwtFilter;
 import com.pkg.testrole.security.MyUserDetailsService;
 import com.pkg.testrole.service.UserService;
 
@@ -129,5 +133,56 @@ public class UsersControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request))).andExpect(status().isBadRequest())
         .andExpect(content().string("")); 
+	}
+	@Test
+	public void testLogin_Success() throws Exception {
+		//request body
+		LoginRequestDTO request = new LoginRequestDTO();
+		request.setUsername("john");
+		request.setPassword("123456");
+		request.setRole(Role.valueOf("STUDENT"));
+		//response body
+		LoginResponseDTO response = new LoginResponseDTO("token","STUDENT");
+		//log in user
+		String username = "Min";
+		UserDetails userDetails = User
+				.withUsername("Min")
+				.password("Min@123")
+				.roles("ADMIN")
+				.build(); // Mocked UserDetails
+		when(jwtService.extractUserName(any(String.class))).thenReturn("Min");
+		when(myUserDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
+		when(usersService.verify(Mockito.any(LoginRequestDTO.class))).thenReturn(response);
+
+		mockMvc.perform(post("/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request))).andExpect(status().isOk())
+         .andExpect(jsonPath("$.role").value("STUDENT"));
+	}
+	@Test
+	public void testLogin_badRequest_Success() throws Exception {
+		//request body
+		LoginRequestDTO request = new LoginRequestDTO();
+		request.setUsername("john");
+		request.setPassword("123456");
+		request.setRole(Role.valueOf("STUDENT"));
+		//response body
+		LoginResponseDTO response = new LoginResponseDTO("token","STUDENT");
+		//log in user
+		String username = "Min";
+		UserDetails userDetails = User
+				.withUsername("Min")
+				.password("Min@123")
+				.roles("ADMIN")
+				.build(); // Mocked UserDetails
+		when(jwtService.extractUserName(any(String.class))).thenReturn("Min");
+		when(myUserDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
+		//when(usersService.verify(Mockito.any(LoginRequestDTO.class))).thenReturn(response);
+		when(usersService.verify(Mockito.any(LoginRequestDTO.class)))
+		.thenThrow(new RuntimeException("Service failed"));
+		mockMvc.perform(post("/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request))).andExpect(status().isBadRequest());
+       //  .andExpect(jsonPath("$.role").value("STUDENT"));
 	}
 }
